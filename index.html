@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>גלרית אלבומים</title>
+    <title>גלריית אלבומים</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -69,40 +69,50 @@
             loadGallery();
         }
 
-        // טעינת תמונות מהתיקייה ב-Cloudinary
+        // טעינת תמונות מ-Cloudinary לפי תגית או נתיב
         function loadGallery() {
             const grid = document.getElementById('gallery-grid');
             grid.innerHTML = '<div class="col-span-full text-center py-12 text-slate-400">טוען תמונות...</div>';
 
-            // משיכת רשימת הקבצים לפי תגית/תיקייה מ-Cloudinary
-            fetch(`https://res.cloudinary.com/${CLOUD_NAME}/image/list/${encodeURIComponent(currentFolder)}.json`)
-                .then(res => res.json())
-                .then(data => {
-                    if(!data.resources || data.resources.length === 0) {
-                        grid.innerHTML = '<div class="col-span-full text-center py-12 text-slate-400">לא נמצאו תמונות בתיקייה זו.</div>';
-                        return;
-                    }
+            const encodedFolder = encodeURIComponent(currentFolder);
 
-                    grid.innerHTML = data.resources.map(file => {
-                        const imgUrl = `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/c_fill,w_600,h_400,g_auto,q_auto,f_auto/v${file.version}/${file.public_id}.${file.format}`;
-                        const fullUrl = `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/q_auto,f_auto/v${file.version}/${file.public_id}.${file.format}`;
-                        return `
-                            <div class="group relative aspect-[4/3] bg-slate-800 rounded-xl overflow-hidden cursor-pointer shadow-md hover:shadow-indigo-500/10 transition-all"
-                                 onclick="openLightbox('${fullUrl}')">
-                                <img src="${imgUrl}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                                <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                                    <span class="text-xs text-slate-200 truncate">${file.public_id.split('/').pop()}</span>
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
+            // ניסיון משיכה ראשון - לפי Tag
+            fetch(`https://res.cloudinary.com/${CLOUD_NAME}/image/list/${encodedFolder}.json`)
+                .then(res => {
+                    if (!res.ok) throw new Error('Tag not found');
+                    return res.json();
                 })
+                .then(data => renderImages(data.resources))
                 .catch(() => {
+                    // ניסיון משיכה משני - משיכת כלל הרשימה או הודעת תיוג
                     grid.innerHTML = `
                         <div class="col-span-full text-center py-12 text-slate-400">
-                            לא ניתן להציג את התמונות. ודא שהתמונות משויכות לתגית או תיקייה מתאימה ושמאופשרת גישה לרשימה ב-Cloudinary.
+                            לא נמצאו תמונות משויכות לתגית "${currentFolder}".<br>
+                            <span class="text-xs text-slate-500 mt-2 block">אנא ודא שהוספת את התגית (Tag) "${currentFolder}" לתמונות ב-Cloudinary.</span>
                         </div>`;
                 });
+        }
+
+        function renderImages(resources) {
+            const grid = document.getElementById('gallery-grid');
+            if (!resources || resources.length === 0) {
+                grid.innerHTML = '<div class="col-span-full text-center py-12 text-slate-400">לא נמצאו תמונות בתיקייה זו.</div>';
+                return;
+            }
+
+            grid.innerHTML = resources.map(file => {
+                const imgUrl = `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/c_fill,w_600,h_400,g_auto,q_auto,f_auto/v${file.version}/${file.public_id}.${file.format}`;
+                const fullUrl = `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/q_auto,f_auto/v${file.version}/${file.public_id}.${file.format}`;
+                return `
+                    <div class="group relative aspect-[4/3] bg-slate-800 rounded-xl overflow-hidden cursor-pointer shadow-md hover:shadow-indigo-500/10 transition-all"
+                         onclick="openLightbox('${fullUrl}')">
+                        <img src="${imgUrl}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                            <span class="text-xs text-slate-200 truncate">${file.public_id.split('/').pop()}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
         // Lightbox

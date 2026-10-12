@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>גלריית אלבומים</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
+
+    <!-- הגדרות Cloudinary -->
+    <script>
+        const CLOUD_NAME = 'iswyil3a';
+        const FOLDERS = ['פראג 2006', 'אתונה 2007', 'מדריד 2008'];
+    </script>
+
+    <!-- באנר עליון -->
+    <header class="border-b border-slate-800 bg-slate-950/50 backdrop-blur sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <i data-lucide="images" class="w-6 h-6 text-indigo-400"></i>
+                אלבומי תמונות
+            </h1>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        <!-- ניווט בין התיקיות/אלבומים -->
+        <div id="folder-buttons" class="flex flex-wrap gap-3 mb-8"></div>
+
+        <!-- גריד התמונות -->
+        <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+    </main>
+
+    <!-- Modal לתצוגת תמונה מוגדלת (Lightbox) -->
+    <div id="lightbox" class="fixed inset-0 bg-black/90 hidden z-50 flex items-center justify-center p-4">
+        <button id="close-btn" class="absolute top-4 right-4 text-white p-2 hover:bg-white/10 rounded-full">
+            <i data-lucide="x" class="w-8 h-8"></i>
+        </button>
+        <img id="lightbox-img" class="max-h-[90vh] max-w-[90vw] object-contain rounded-lg" src="" alt="">
+    </div>
+
+    <script>
+        let currentFolder = FOLDERS[0];
+
+        // יצירת כפתורי התיקיות
+        function renderButtons() {
+            const container = document.getElementById('folder-buttons');
+            container.innerHTML = FOLDERS.map(folder => `
+                <button onclick="selectFolder('${folder}')" 
+                        class="px-5 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2 ${
+                            currentFolder === folder 
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' 
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        }">
+                    <i data-lucide="folder" class="w-4 h-4"></i>
+                    ${folder}
+                </button>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function selectFolder(folder) {
+            currentFolder = folder;
+            renderButtons();
+            loadGallery();
+        }
+
+        // טעינת תמונות מהתיקייה ב-Cloudinary
+        function loadGallery() {
+            const grid = document.getElementById('gallery-grid');
+            grid.innerHTML = '<div class="col-span-full text-center py-12 text-slate-400">טוען תמונות...</div>';
+
+            // משיכת רשימת הקבצים לפי תגית/תיקייה מ-Cloudinary
+            fetch(`https://res.cloudinary.com/${CLOUD_NAME}/image/list/${encodeURIComponent(currentFolder)}.json`)
+                .then(res => res.json())
+                .then(data => {
+                    if(!data.resources || data.resources.length === 0) {
+                        grid.innerHTML = '<div class="col-span-full text-center py-12 text-slate-400">לא נמצאו תמונות בתיקייה זו.</div>';
+                        return;
+                    }
+
+                    grid.innerHTML = data.resources.map(file => {
+                        const imgUrl = `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/c_fill,w_600,h_400,g_auto,q_auto,f_auto/v${file.version}/${file.public_id}.${file.format}`;
+                        const fullUrl = `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/q_auto,f_auto/v${file.version}/${file.public_id}.${file.format}`;
+                        return `
+                            <div class="group relative aspect-[4/3] bg-slate-800 rounded-xl overflow-hidden cursor-pointer shadow-md hover:shadow-indigo-500/10 transition-all"
+                                 onclick="openLightbox('${fullUrl}')">
+                                <img src="${imgUrl}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                                    <span class="text-xs text-slate-200 truncate">${file.public_id.split('/').pop()}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                })
+                .catch(() => {
+                    grid.innerHTML = `
+                        <div class="col-span-full text-center py-12 text-slate-400">
+                            לא ניתן להציג את התמונות. ודא שהתמונות משויכות לתגית או תיקייה מתאימה ושמאופשרת גישה לרשימה ב-Cloudinary.
+                        </div>`;
+                });
+        }
+
+        // Lightbox
+        function openLightbox(url) {
+            document.getElementById('lightbox-img').src = url;
+            document.getElementById('lightbox').classList.remove('hidden');
+        }
+
+        document.getElementById('close-btn').onclick = () => {
+            document.getElementById('lightbox').classList.add('hidden');
+        };
+
+        // אתחול
+        renderButtons();
+        loadGallery();
+    </script>
+</body>
+</html>

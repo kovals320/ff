@@ -24,6 +24,7 @@
                 <i data-lucide="images" class="w-6 h-6 text-indigo-400"></i>
                 אלבומי תמונות
             </h1>
+            <div id="image-count" class="text-sm text-slate-400"></div>
         </div>
     </header>
 
@@ -72,29 +73,38 @@
         // טעינת תמונות מ-Cloudinary לפי תגית
         function loadGallery() {
             const grid = document.getElementById('gallery-grid');
+            const countElem = document.getElementById('image-count');
             grid.innerHTML = '<div class="col-span-full text-center py-12 text-slate-400">טוען תמונות...</div>';
+            countElem.innerText = '';
 
             const encodedFolder = encodeURIComponent(currentFolder);
 
-            fetch(`https://res.cloudinary.com/${CLOUD_NAME}/image/list/${encodedFolder}.json`)
+            // הוספת Timestamp למניעת שמיטת קבצים עקב Caching של דפדפן/Cloudinary
+            fetch(`https://res.cloudinary.com/${CLOUD_NAME}/image/list/${encodedFolder}.json?timestamp=${Date.now()}`)
                 .then(res => {
                     if (!res.ok) throw new Error('Tag not found');
                     return res.json();
                 })
                 .then(data => {
-                    // מיון התמונות מהישנה לחדשה לפי תאריך (created_at או לפי השם אם מופיע בו תאריך)
-                    const sortedResources = (data.resources || []).sort((a, b) => {
+                    const resources = data.resources || [];
+                    
+                    // מיון מהישן לחדש (סדר כרונולוגי עולה)
+                    resources.sort((a, b) => {
                         const dateA = new Date(a.created_at || 0);
                         const dateB = new Date(b.created_at || 0);
-                        return dateA - dateB; // מהישן לחדש
+                        if (dateA - dateB !== 0) return dateA - dateB;
+                        return (a.public_id || '').localeCompare(b.public_id || '');
                     });
-                    renderImages(sortedResources);
+
+                    countElem.innerText = `סה"כ ${resources.length} תמונות`;
+                    renderImages(resources);
                 })
                 .catch(() => {
+                    countElem.innerText = '';
                     grid.innerHTML = `
                         <div class="col-span-full text-center py-12 text-slate-400">
                             לא נמצאו תמונות משויכות לתגית "${currentFolder}".<br>
-                            <span class="text-xs text-slate-500 mt-2 block">אנא ודא שהוספת את התגית (Tag) "${currentFolder}" לתמונות ב-Cloudinary.</span>
+                            <span class="text-xs text-slate-500 mt-2 block">אנא ודא שכל ${currentFolder} התמונות מתויגות ב-Cloudinary בתגית "${currentFolder}".</span>
                         </div>`;
                 });
         }

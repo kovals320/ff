@@ -69,22 +69,28 @@
             loadGallery();
         }
 
-        // טעינת תמונות מ-Cloudinary לפי תגית או נתיב
+        // טעינת תמונות מ-Cloudinary לפי תגית
         function loadGallery() {
             const grid = document.getElementById('gallery-grid');
             grid.innerHTML = '<div class="col-span-full text-center py-12 text-slate-400">טוען תמונות...</div>';
 
             const encodedFolder = encodeURIComponent(currentFolder);
 
-            // ניסיון משיכה ראשון - לפי Tag
             fetch(`https://res.cloudinary.com/${CLOUD_NAME}/image/list/${encodedFolder}.json`)
                 .then(res => {
                     if (!res.ok) throw new Error('Tag not found');
                     return res.json();
                 })
-                .then(data => renderImages(data.resources))
+                .then(data => {
+                    // מיון התמונות מהישנה לחדשה לפי תאריך (created_at או לפי השם אם מופיע בו תאריך)
+                    const sortedResources = (data.resources || []).sort((a, b) => {
+                        const dateA = new Date(a.created_at || 0);
+                        const dateB = new Date(b.created_at || 0);
+                        return dateA - dateB; // מהישן לחדש
+                    });
+                    renderImages(sortedResources);
+                })
                 .catch(() => {
-                    // ניסיון משיכה משני - משיכת כלל הרשימה או הודעת תיוג
                     grid.innerHTML = `
                         <div class="col-span-full text-center py-12 text-slate-400">
                             לא נמצאו תמונות משויכות לתגית "${currentFolder}".<br>
